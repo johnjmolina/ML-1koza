@@ -1,0 +1,230 @@
+\documentclass[nobib]{tufte-handout}
+
+\title{Probabilistic Programming, Gaussian Processes \& Machine Learning}
+
+\author[ML Study Group]{ML Study Group}
+
+%\date{28 March 2010} % without \date command, current date is supplied
+
+%\geometry{showframe} % display margins for debugging page layout
+\usepackage[super]{natbib} 
+\usepackage{graphicx} % allow embedded images
+  \setkeys{Gin}{width=\linewidth,totalheight=\textheight,keepaspectratio}
+  \graphicspath{{graphics/}} % set of paths to search for images
+%\usepackage{mathtools}
+%\usepackage{amsmath}  % extended mathematics
+\usepackage{hyperref}
+\usepackage{booktabs} % book-quality tables
+\usepackage{units}    % non-stacked fractions and better unit spacing
+\usepackage{multicol} % multiple column layout facilities
+\usepackage{lipsum}   % filler text
+\usepackage{fancyvrb} % extended verbatim environments
+\usepackage{mycommands}
+
+\usepackage[final]{showlabels}
+\renewcommand{\showlabelfont}{\tiny\slshape\color{blue}}
+\fvset{fontsize=\normalsize}% default font size for fancy-verbatim environments
+
+
+% Standardize command font styles and environments
+\newcommand{\doccmd}[1]{\texttt{\textbackslash#1}}% command name -- adds backslash automatically
+\newcommand{\docopt}[1]{\ensuremath{\langle}\textrm{\textit{#1}}\ensuremath{\rangle}}% optional command argument
+\newcommand{\docarg}[1]{\textrm{\textit{#1}}}% (required) command argument
+\newcommand{\docenv}[1]{\textsf{#1}}% environment name
+\newcommand{\docpkg}[1]{\texttt{#1}}% package name
+\newcommand{\doccls}[1]{\texttt{#1}}% document class name
+\newcommand{\docclsopt}[1]{\texttt{#1}}% document class option name
+
+\newenvironment{docspec}{\begin{quote}\noindent}{\end{quote}}% command specification environment
+
+  % For A4 paper
+\geometry{
+  left=24.8mm, % left margin
+  textwidth=100mm, % main text block
+  marginparsep=8.2mm, % gutter between main text block and margin notes
+  marginparwidth=49.4mm % width of margin notes
+}
+
+\begin{document}
+
+\maketitle% this prints the handout title, author, and date
+
+\begin{abstract}
+\noindent
+This document collects notes on Machine Learning, Gaussian Processes, and Probabilistic Programming gathered 
+during the 1koza Study Group sessions.
+\end{abstract}
+
+%\printclassoptions
+
+\section{Gaussian Processes (GP)}\label{s:GP}
+The following Matrix identities will prove useful to derive the basic theorems of GP\cite{Rasmussen2005}
+\subsection{Matrix Identities}
+\begin{align}
+\inv{\Sigma} &= \begin{pmatrix}
+  \form{A} & \form{C} \\
+  \form{D} & \form{B}
+\end{pmatrix}, \qquad \Sigma = \begin{pmatrix}
+  A & C \\
+  D & B
+\end{pmatrix}&& \label{e:block_inverse} \\
+\form{A} &= \inv{\left(A - C\inv{B} D\right)}=E &&= \inv{A} + \inv{A}C FD\inv{A}\notag\\
+\form{C} &= -E C \inv{B} &&= -\inv{A} C F\notag\\
+\form{D} &= -\inv{B}DE &&= - F D \inv{A}\notag\\
+\form{B} &= \inv{B} + \inv{B}DEC\inv{B} &&= \inv{\left(B - D\inv{A}C\right)} = F\notag
+\end{align}
+
+In the case that $\Sigma$ is symmetric ($A=\transpose{A}$, $B=\transpose{B}$, $D = \transpose{C}$), we have
+\begin{align}
+  \inv{\Sigma} &= \begin{pmatrix}
+    \form{A} & \form{C} \\
+    \transpose{\form{C}} & \form{B}
+  \end{pmatrix}\label{e:sym_block_inverse}\\
+  \form{A} &= \inv{\left(A - C \inv{B}\transpose{C}\right)} = E &&= \inv{A} + \inv{A} C F \transpose{C}\inv{A}\notag\\
+  \form{C} &= - E C \inv{B} &&= -\inv{A}CF \notag\\
+  \form{B} &= \inv{B} + \inv{B}\transpose{C} E C \inv{B} &&= \inv{\left(B - \transpose{C}\inv{A}C\right)} = F\notag
+\end{align}
+
+Furthermore, the determinants of such block matrices can be written as (assuming $A$, $B$ are invertible)
+\begin{align}
+  \det{\Sigma} &= \det{B}\cdot\det{\left(A - C\inv{B}D\right)} &&= \det{A}\cdot\det{\left(B - D\inv{A}C\right)}\label{e:block_det}\\
+  &= \det{B}\cdot\det{\inv{\form{A}}} &&= \det{A}\cdot\det{\inv{\form{B}}}\notag
+\end{align}
+
+\subsection{Gaussian Distributions}
+If $x$ is a multi-variate Gaussian random variable, with mean $\mu$ and variance $\Sigma$, the probability density function
+is given by
+\begin{align}
+  \rho(x\lvert\mu, \Sigma) &= \frac{1}{\sqrt{\left(2\pi\right)^n \det{\Sigma}}} \exp{\left[-\frac{1}{2}\transpose{\left(x - \mu\right)} 
+  \inv{\Sigma} \left(x - \mu\right)\right]}\label{e:gaussian_pdf}\\
+  &\equiv \mathcal{N}\left(\mu, \Sigma\right)\notag
+\end{align}
+where $\Sigma$ is a positie-definite symmetric matrix and 
+\begin{align}
+  \int\df{x}\rho(x\lvert\mu, \Sigma) &= 1\label{e:gaussian_norm}\\
+  \avg{x} &= \mu \label{e:gaussian_mu}\\
+  \avg{\left(x_i-\mu_i\right)\left(x_j - \mu_j\right)} &= \Sigma_{ij}\label{e:gaussian_sigma}
+  \end{align}
+\subsection{Gaussian Integrals}
+Many times, we must deal with integrands that are not quite Gaussian, but which can be rewritten as Gaussians\sidenote{
+  All we do is complete the square
+  \begin{align*}
+    &\qquad-\frac{1}{2}\transpose{x}Ax + \transpose{x}b\\
+    &=-\frac{1}{2}\left[\transpose{x}Ax - \transpose{x}b - \transpose{b}x\right] \\
+    &=-\frac{1}{2}\left[\transpose{x}Ax - \transpose{x}A\inv{A}b - \transpose{b}x\right]\\
+    &=-\frac{1}{2}\left[\transpose{x}A\left(x - \inv{A}b\right) - \transpose{b}\left(x - \inv{A}b + \inv{A}b\right)\right]\\
+    &= -\frac{1}{2}\left[\transpose{x}A\left(x - \inv{A}b\right) - \transpose{b}\inv{A}A\left(x - \inv{A}b\right)\right] \\
+    &\quad +\frac{1}{2}\transpose{b}\inv{A}b \\
+    &= -\frac{1}{2}\left(\transpose{x} - \transpose{b}\inv{A}\right) A \left(x - \inv{A}b\right) + \frac{1}{2}\transpose{b}\inv{A}b\\
+    &= -\frac{1}{2}\transpose{\left(x - \inv{A}b\right)}A\left(x - \inv{A}b\right) + \frac{1}{2}\transpose{b}\inv{A}b
+  \end{align*}
+  where we used the fact that $A$ is symmetric, $A = \transpose{A}$, and $\left(\transpose{A}\right)^{-1} = \transpose{\left(\inv{A}\right)}$.\newline
+  For a complete list of such integrals, see the wikipedia article on \href{https://en.wikipedia.org/wiki/Common_integrals_in_quantum_field_theory}{"Common integrals for Quantum Field Theory"}
+}
+\begin{align}
+    &I(A,b,c) = \int\df{x} \exp{\left[-\frac{1}{2}\transpose{x} A x + \transpose{x} b + c\right]} \label{e:gaussian_int} \\
+    &= \exp{\left[\frac{1}{2}\transpose{b}\inv{A}b + c\right]} \int\df{x}\exp{\left[-\frac{1}{2}\transpose{\left(x - \inv{A}b\right)} A \left(x - \inv{A}b\right)\right]}  \notag \\
+    &= \sqrt{\left(2\pi\right)^n\det\inv{A}}\,\exp{\left[\frac{1}{2}\transpose{b}\inv{A}b + c\right]}\int\df{x}\rho(x\lvert \inv{A}b, \inv{A})\notag \\
+    &= \sqrt{\frac{\left(2\pi\right)^n}{\det{A}}}\,\exp{\left[\frac{1}{2}\transpose{b}\inv{A}b + c\right]}\notag
+\end{align}
+
+\subsection{Marginalization}
+Let $x = (x_1, x_2, \cdots, x_n)$ be a multivariate Gaussian random variable, as defined in Eq.~\eqref{e:gaussian_pdf}. Partitioning $x$ into two sets, $x_A$ and $x_B$, of size $n_A$ and $n_B$ ($n=n_A + n_B$), respectively, we can
+write the probability distribution in block form as
+\begin{align}
+\rho(x_A, x_B) &= \frac{1}{\sqrt{(2\pi)^n \det\Sigma}} \exp{\left[-\frac{1}{2}\transpose{\delta x}
+\inv{\Sigma}\delta x\right]}\notag \\
+  &=\frac{1}{\sqrt{(2\pi)^n \det\Sigma}} \exp{\left[-\frac{1}{2}\transpose{\begin{pmatrix}\delta x_A\\ \delta x_B\end{pmatrix}}
+  \begin{pmatrix}\form{\Sigma}_{AA} & \form{\Sigma}_{AB}\\ \transpose{\form{\Sigma}_{AB}} & \form{\Sigma}_{BB}\end{pmatrix}
+  \begin{pmatrix}\delta x_A\\ \delta x_B\end{pmatrix}\right]}\notag 
+\end{align}
+where $\delta x_\alpha = x_\alpha - \mu_\alpha$, and $\Sigma_{\alpha\beta} = \avg{\transpose{\delta x_A} \delta x_B}$. The probability 
+distribution for $x_B$ can be obtained from the joint distribution by marginalizing over $x_A$\sidenote{
+  Expanding the exponent we have
+  \begin{align*}
+    \transpose{\delta x}\Sigma^{-1}\delta x
+    &=\transpose{\delta x_A}\left(\form{\Sigma}_{AA}\delta x_A + \form{\Sigma}_{AB}\delta x_B\right) \\
+    &+\transpose{\delta x_B}\left(\transpose{\form{\Sigma}_{AB}} \delta x_A + \form{\Sigma}_{BB}\delta x_B\right)
+    \end{align*}
+  Separating out the terms with $x_A$ 
+  \begin{align*}
+    =&\left[\transpose{\delta x}_A \form{\Sigma}_{AA}\delta x_A + 2\transpose{\delta x}_A\form{\Sigma}_{AB}\delta x_B\right] \\
+    &+\transpose{\delta x}_B \form{\Sigma}_{BB}\delta x_B
+  \end{align*}
+}
+\begin{align}
+  \rho(x_B) &= \int\df{x_A} \rho(x_A, x_B)
+\end{align}
+which results in another Gaussian,
+\begin{align*}
+  \rho(x_B) &= \left(\frac{\int\df{x_A} \exp{\left[-\frac{1}{2}\transpose{\delta x_A}\form{\Sigma}_{AA}\delta x_A - \transpose{\delta x_A} \form{\Sigma}_{AB}\delta x_B\right]}}{\sqrt{(2\pi)^{n_A}\det{\inv{\form{\Sigma}_{AA}}}}}\right)\\
+  &\quad \times \left(\frac{1}{\sqrt{(2\pi)^{n_B} \det\Sigma_{BB}}} \exp\left[-\frac{1}{2}\transpose{\delta x}_B \form{\Sigma}_{BB} \delta x_B \right]\right)
+  \notag
+\end{align*}
+as can be seen by using Eq.\eqref{e:gaussian_int}, with $b = -\form{\Sigma}_{AB}\delta x_B$, to evaluate the term appearing in parenthesis\sidenote{
+  Using Eq.\eqref{e:sym_block_inverse} repeatedly
+  \begin{align*}
+    &\transpose{\form{\Sigma}_{AB}}\inv{\form{\Sigma}_{AA}}\form{\Sigma}_{AB} \\
+    &= \transpose{\form{C}}\inv{\form{A}} \form{C} \\
+    &=\left(-\inv{B}\transpose{C}\form{A}\right) \inv{\form{A}} \left(-\form{A} C \inv{B}\right)\\
+    &= \inv{B} \transpose{C}\form{A}C\inv{B} = \form{B} - \inv{B} \\
+    &= \form{\Sigma}_{BB} - \inv{\Sigma}_{BB}
+  \end{align*}
+}
+\begin{align*}
+  &\int\df{x_A}\exp{\left[-\frac{1}{2}\transpose{\delta x_A} \form{\Sigma}_{AA}\delta x_A - 
+  \transpose{\delta x_A} \form{\Sigma}_{AB}\delta x_B\right]}\\
+  &= \sqrt{(2\pi)^{n_A} \det{\inv{\form{\Sigma}_{AA}}}} \exp{\left[\frac{1}{2} \transpose{\delta x_B} \transpose{\form{\Sigma}_{AB}} \inv{\form{\Sigma}_{AA}} \form{\Sigma}_{AB}\delta x_B\right]}\\
+  &= \sqrt{(2\pi)^{n_A} \det{\inv{\form{\Sigma}_{AA}}}} \exp{\left[\frac{1}{2}\transpose{\delta x_B}\left(\form{\Sigma}_{BB} - \inv{\Sigma}_{BB}\right)\delta x_B\right]}
+\end{align*}
+such that we recover 
+\begin{align}
+  \rho(x_B) &= \frac{1}{\sqrt{(2\pi)^{n_B} \det{\Sigma_{BB}}}} 
+  \exp{\left[-\frac{1}{2}\transpose{\delta x_B}\inv{\Sigma_{BB}}\delta x_B\right]}\label{e:gaussian_marg} \\
+  &= \mathcal{N}(\mu_B, \Sigma_{BB})
+\end{align}
+as expected.
+\subsection{Conditioning}
+Let us now consider what happens when we condition the distribution of $x$, again a multi-variate Gaussian random variable, on
+a subset $x_{B}$, that is, using Bayes' Theorem
+\begin{align}
+  \rho(x_A\lvert x_B) &= \frac{\rho(x_A, x_B)}{\rho(x_B)}\label{e:gaussian_bayes}
+\end{align}
+or, separating out the terms that depend on $x_A$\sidenote{Using the same trick as above, completing the square gives
+  \begin{align*}
+    &-\frac{1}{2}\transpose{\delta x}\inv{\Sigma}\delta x \\
+    &=\left[-\frac{1}{2}\transpose{\delta x_A} \form{\Sigma}_{AA} \delta x_A - \transpose{\delta x_A}\form{\Sigma}_{AB}\delta x_B\right]
+    - \frac{1}{2}\transpose{\delta x_B}\form{\Sigma}_{BB}\delta x_B\\
+    &= -\frac{1}{2}\transpose{\left(\delta x_A + \inv{\form{\Sigma}_{AA}} \form{\Sigma}_{AB}\delta x_{B}\right)}\form{\Sigma}_{AA}\left(\delta x_A + \inv{\form{\Sigma}}_{AA}\form{\Sigma}_{AB}\delta x_B\right) \\
+    & \quad+ \frac{1}{2}\transpose{\delta x_B}\left(\transpose{\form{\Sigma}_{AB}}\inv{\form{\Sigma}_{AA}}\form{\Sigma}_{AB} - \form{\Sigma}_{BB}\right)\delta x_B \\
+    &= -\frac{1}{2}\transpose{\left(\delta x_A + \inv{\form{\Sigma}_{AA}} \form{\Sigma}_{AB}\delta x_{B}\right)}\form{\Sigma}_{AA}\left(\delta x_A + \inv{\form{\Sigma}}_{AA}\form{\Sigma}_{AB}\delta x_B\right) \\
+    & \quad- \frac{1}{2}\transpose{\delta x_B}\inv{\Sigma_{BB}}\delta x_B
+  \end{align*}
+  where we recognize that the last term will result in a contribution proportional to $\rho(x_B)$.
+}
+\begin{align}
+  &\rho(x_A\lvert x_B) = 
+  \frac{1}{\sqrt{(2\pi)^{n_A}\det\inv{\form{\Sigma}_{AA}}}}\\
+  &\quad\times\exp{\left[-\frac{1}{2}\transpose{\left(\delta x_A + \inv{\form{\Sigma}_{AA}}\form{\Sigma}_{AB}\delta x_B\right)}\form{\Sigma}_{AA}\left(\delta x_A + \inv{\form{\Sigma}_{AA}}\form{\Sigma}_{AB}\delta x_B\right)\right]\notag}
+\end{align}
+where we have used the fact that $\det\Sigma = \det\Sigma_{BB}\cdot\det\inv{\form{\Sigma}_{AA}}$ (Eq.\eqref{e:block_det}).
+Thus, we see that the condional distribution for $x_A$ is yet another Gaussian, with mean and covariance given by
+\begin{align}
+  \rho(x_A\lvert x_B) &= \mathcal{N}\left(\mu_A - \inv{\form{\Sigma}_{AA}}\form{\Sigma}_{AB}\delta x_B, \inv{\form{\Sigma}_{AA}}\right)\label{e:gaussian_cond1}
+\end{align}
+We can further simplify this expression, using Eq.\eqref{e:sym_block_inverse} to write the mean and covariance in terms of the original block matrices of $\Sigma$, as\sidenote{
+  We simply use the fact that
+  \begin{align*}
+    \inv{\form{\Sigma}_{AA}}\form{\Sigma}_{AB} &\equiv \inv{\form{A}} \form{C} \\
+    &= -\inv{\form{A}}\form{A} C \inv{B} \\
+    &= - C \inv{B}\\
+    &= - \Sigma_{AB} \inv{\Sigma_{BB}}
+  \end{align*}
+}
+\begin{align}
+  \rho(x_A\lvert x_B) &= \mathcal{N}\left(\mu_A + \Sigma_{AB}\inv{\Sigma}_{BB}\delta x_{B}, \Sigma_{AA} - \Sigma_{AB}\inv{\Sigma}_{BB}\transpose{\Sigma_{AB}}\right)\label{e:gaussian_cond2}
+\end{align}
+Eqs.(\ref{e:gaussian_cond1} - \ref{e:gaussian_cond2}) correspond to Eqs~(A.6) in Rasmussen's book, and are probably the most useful relations for using GP.
+\bibliography{ML}
+\bibliographystyle{plainnat}
+\end{document}
