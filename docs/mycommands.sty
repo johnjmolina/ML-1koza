@@ -1,0 +1,51 @@
+%\usepackage{amsthm,amssymb,amsfonts,bm,color,graphicx}
+\usepackage[fixamsmath, disallowspaces]{mathtools}
+\usepackage[utf8]{inputenc} %useful to type directly diacritic characters
+\usepackage{epsfig,grffile,tipa}
+
+%%\usepackage{subcaption}
+\usepackage{etoolbox}
+\usepackage{fouridx}
+\usepackage{grfext}
+%\usepackage[notcite,notref]{showkeys}
+%\renewcommand*\showkeyslabelformat[1]{\normalfont\scriptsize{\color{blue}\ttfamily(#1)}}
+\usepackage[export]{adjustbox}
+
+\DeclareGraphicsExtensions{{.pdf,.png,.eps}}
+\PrependGraphicsExtensions*{.pdf symlink}
+\PrependGraphicsExtensions*{.png symlink}
+\DeclareGraphicsRule{.pdf symlink}{pdf}{*}{}
+\DeclareGraphicsRule{.png symlink}{png}{*}{}
+\graphicspath{{./images/}}
+
+
+\DeclarePairedDelimiterX\avg[1]{\langle}{\rangle}{\mathopen{}#1}
+\DeclarePairedDelimiterX\norm[1]{\lvert}{\lvert}{\mathopen{}#1}
+\DeclarePairedDelimiterX\Norm[1]{\lVert}{\lVert}{\mathopen{}#1}
+
+\DeclareMathOperator{\sign}{sign}
+\DeclareMathOperator{\sech}{sech}
+\DeclareMathOperator{\csch}{csch}
+\DeclareMathOperator{\arcsec}{asec}
+\DeclareMathOperator{\arccot}{acot}
+\DeclareMathOperator{\arccsc}{acsc}
+\DeclareMathOperator{\arccosh}{acosh}
+\DeclareMathOperator{\arcsinh}{asinh}
+\DeclareMathOperator{\arctanh}{atanh}
+\DeclareMathOperator{\arcsech}{asech}
+\DeclareMathOperator{\arccsch}{acsch}
+\DeclareMathOperator{\arccoth}{acoth}
+
+\DeclareMathOperator{\trace}{tr}
+\newcommand{\Trace}[1]{\trace{\PP{#1}}}
+\newcommand{\transpose}[1]{#1^\textrm{t}}
+\newcommand{\form}[1]{\widetilde{#1}}
+\renewcommand{\vec}[1]{\bm{#1}}
+\newcommand{\uvec}[1]{\hat{\bm{#1}}}
+\newcommand{\op}[1]{\mathcal{#1}}
+\newcommand{\dd}{\text{d}}
+\newcommand{\df}[1]{\dd#1\,}
+\newcommand{\vdf}[1]{\text{d}\vec{#1}\,}
+\newcommand{\abs}[1]{\left\lvert#1\right\lvert}
+\newcommand{\inv}[1]{#1^{-1}}
+\newcommand{\Inv}[1]{\frac{1}{#1}}

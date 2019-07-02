@@ -1,0 +1,7 @@
+docs/*.aux
+docs/*.bbl
+docs/*.blg
+docs/*.fls
+docs/*.log
+docs/*.out
+docs/*.pdf
