@@ -5,3 +5,7 @@ docs/*.fls
 docs/*.log
 docs/*.out
 docs/*.pdf
+*.synctex.gz
+*.fdb_latexmk
+__pycache__
+.ipynb_checkpoints
