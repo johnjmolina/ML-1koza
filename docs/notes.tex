@@ -12,7 +12,7 @@
   \setkeys{Gin}{width=\linewidth,totalheight=\textheight,keepaspectratio}
   \graphicspath{{graphics/}} % set of paths to search for images
 %\usepackage{mathtools}
-%\usepackage{amsmath}  % extended mathematics
+%\usepackage{amsmath}  % extended mathematicsq
 \usepackage{hyperref}
 \usepackage{booktabs} % book-quality tables
 \usepackage{units}    % non-stacked fractions and better unit spacing
@@ -89,6 +89,12 @@ Furthermore, the determinants of such block matrices can be written as (assuming
 \begin{align}
   \det{\Sigma} &= \det{B}\cdot\det{\left(A - C\inv{B}D\right)} &&= \det{A}\cdot\det{\left(B - D\inv{A}C\right)}\label{e:block_det}\\
   &= \det{B}\cdot\det{\inv{\form{A}}} &&= \det{A}\cdot\det{\inv{\form{B}}}\notag
+\end{align}
+
+When optimizing the hyper-parameters, it is also convenient to be able to evaluate derivatives of inverse matrices and determinants, for which we use
+\begin{align}
+  \pd{\theta} \inv{A} &= -\inv{A} \PD{\theta}{A}\inv{A} \label{e:dA1}\\
+  \pd{\theta}\log{\left(\det A\right)}&= \Trace{\inv{A} \PD{\theta}{A}}\label{e:dA2}
 \end{align}
 
 \subsection{Gaussian Distributions}
@@ -225,6 +231,62 @@ We can further simplify this expression, using Eq.\eqref{e:sym_block_inverse} to
   \rho(x_A\lvert x_B) &= \mathcal{N}\left(\mu_A + \Sigma_{AB}\inv{\Sigma}_{BB}\delta x_{B}, \Sigma_{AA} - \Sigma_{AB}\inv{\Sigma}_{BB}\transpose{\Sigma_{AB}}\right)\label{e:gaussian_cond2}
 \end{align}
 Eqs.(\ref{e:gaussian_cond1} - \ref{e:gaussian_cond2}) correspond to Eqs~(A.6) in Rasmussen's book, and are probably the most useful relations for using GP.
+
+\subsection{Implementation}
+For improved numerical stability and computational cost, it is recommended not to compute the matrix inverses appearing in Eqs.~\eqref{e:gaussian_cond2} directly. Instead, we should employ the Cholesky decomposition. Let $A$ be a positive definite matrix (i.e., a covariance matrix $\Sigma$), $A$ can be written as the product of a lower-triangular matrix $L$ and its transpose
+\begin{align}
+  A &= L \transpose{L}\label{e:cholesky}
+\end{align}
+such that expressions of the form $\inv{A} b = x$, for known $A$ and $b$ can be computed as\sidenote{We follow the backslash notation of Rasmussen et al.\cite{Rasmussen2005}
+\begin{align*}
+  A x &= b \\
+  x &= \inv{A} b \\
+  x &\equiv A\backslash b
+\end{align*}
+Where it is assumed that we know $A$, but not necessarily $\inv{A}$ and $b$, but not $x$. This notation is useful to emphasize the fact that we don't want to calculate $\inv{A}$, explicitly, only its product with some vector $b$ (i.e., to solve for $x$). 
+
+Likewise, we have
+\begin{align*}
+  \transpose{b} \inv{A} c &= \transpose{b} \transpose{\left(\inv{L}\right)} \inv{L} c \\
+  &= \transpose{\left(\inv{L} b\right)}\left(\inv{L} c\right) \\
+  &= \transpose{w} v
+\end{align*}
+where $v = L \backslash{c}$, and $w = L \backslash b$
+}
+\begin{align*}
+  \inv{\left(L \transpose{L}\right)} b &= x \\
+  \inv{\left(\transpose{L}\right)} \inv{L} b &= x \\
+  \transpose{L} \backslash \left(L \backslash b\right) &= x
+\end{align*}
+In the same way, we can evaluate more complicated expressions, such as $A = \transpose{C} \inv{B} C$ (with $c_i$ the column-vector components of $C$), without computing $\inv{B}$
+\begin{align}
+A &= \transpose{\begin{pmatrix}
+  c_1 & c_2 & \ldots & c_n
+\end{pmatrix}}\inv{B}
+\begin{pmatrix}
+  c_1 & c_2 & \ldots & c_n
+\end{pmatrix}\notag\\
+&= \begin{pmatrix}
+  \transpose{c}_1 \\ \transpose{c}_2 \\ \vdots \\\transpose{c}_n
+\end{pmatrix}\begin{pmatrix}
+  \inv{B} c_1 & \inv{B} c_2 & \ldots & \inv{B} c_n
+\end{pmatrix}\notag\\
+&= \begin{pmatrix}
+  \transpose{c}_1 \inv{B} c_1 & \ldots & \transpose{c}_1\inv{B} c_n \\
+  \vdots & \ddots & \vdots \\
+  \transpose{c}_n \inv{B} c_1 & \ldots & \transpose{c}_n \inv{B} c_n
+\end{pmatrix}\notag\\
+(A)_{ij} &= \transpose{c}_i \inv{B} 
+c_j\equiv \transpose{\left(L \backslash c_i\right)} \left(L \backslash c_j\right)\label{e:cholesky_transform}
+\end{align}
+with $L$ the Cholesky factor for $B$ (i.e., $B = L \transpose{L}$).
+
+Finally, evaluating terms like $\log{\det{A}}$ is also easier to do using the Cholesky factor, since $\det{L} = \prod_i L_{ii}$
+\begin{align}
+  \log{\det{A}} &= \log{\det{\left(L \transpose{L}\right)}} \notag\\
+  &= \log{\left(\det{L} \det{\transpose{L}}\right)} \notag\\
+  &= 2\log{\det{L}} = 2\sum_i \log{L_{ii}}\label{e:cholesky_det}
+\end{align}
 \bibliography{ML}
 \bibliographystyle{plainnat}
 \end{document}
