@@ -2,5 +2,19 @@ axes.titlesize : 24
 axes.labelsize : 20
 lines.linewidth : 3
 lines.markersize : 10
+xtick.major.pad: 7.0
+xtick.major.size: 7.5
+xtick.major.width: 1.5
+xtick.minor.pad: 7.0
+xtick.minor.size: 3.5
+xtick.minor.width: 1.0
+ytick.major.pad: 7.0
+ytick.major.size: 7.5
+ytick.major.width: 1.5
+ytick.minor.pad: 7.0
+ytick.minor.size: 3.5
+ytick.minor.width: 1.0
 xtick.labelsize : 16
 ytick.labelsize : 16
+font.size : 26
+
